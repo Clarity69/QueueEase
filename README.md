@@ -120,6 +120,11 @@ Pada instalasi lama, jalankan ulang [`database/schema.sql`](database/schema.sql)
 - Jika pemegang tiket tidak hadir, klik **Lewati** pada panggilan aktif. Tiket berstatus **Dilewati** dan nomor menunggu berikutnya langsung dipanggil jika tersedia.
 - Jika pemegang tiket datang, klik **Kembalikan** pada baris tiket. Tiket kembali menunggu menurut urutan kedatangan semula.
 - Klik **Buka layar TV** di panel petugas, atau buka `/display` langsung dari perangkat yang terhubung ke TV. Gunakan tombol layar penuh jika tersedia. Tampilan diperbarui otomatis dan hanya menampilkan nomor serta jenis layanan.
+- Bilah **Informasi** menampilkan teks berjalan. Tekan tombol jeda untuk membacanya tanpa gerakan.
+
+### Data demo
+
+Setelah menjalankan skema, jalankan [`database/demo-queue.sql`](database/demo-queue.sql) di SQL Editor Supabase pada database demo. Skrip menambahkan 10 tiket fiktif dengan dua tiket per kategori. Jika antrean kosong, satu tiket langsung berstatus **Dipanggil** agar muncul di layar TV. Jika sudah ada tiket yang menunggu atau dipanggil, tiket contoh masuk sebagai **Menunggu** setelah antrean yang ada. Menjalankan ulang skrip di tanggal yang sama tidak menggandakan tiket.
 
 ## G. Uji alur antrean
 1. Buka halaman mahasiswa (`/`), isi nama dan NIM 5–20 digit, lalu pilih keperluan.

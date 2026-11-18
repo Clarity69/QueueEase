@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useMatch } from "react-router-dom";
 import { GraduationCap, LayoutDashboard, Ticket } from "lucide-react";
 import StudentPage from "./pages/StudentPage";
 import AdminPage from "./pages/AdminPage";
@@ -12,6 +12,7 @@ import { useState } from "react";
 function Layout() {
   const { user, loading, signOut } = useAuth();
   const [logoutError, setLogoutError] = useState("");
+  const isLoginPage = Boolean(useMatch("/login"));
   const isAdmin = user?.role === "admin";
   const sessionStatus = <p role="status" className="p-8 text-center">Memuat sesi...</p>;
   const linkClass = ({ isActive }) =>
@@ -20,7 +21,7 @@ function Layout() {
     }`;
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-dvh flex-col">
       <header className="border-b border-blue-100 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
@@ -40,7 +41,7 @@ function Layout() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className={isLoginPage ? "flex w-full flex-1 flex-col" : "mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6"}>
         {logoutError && <p role="alert">{logoutError}</p>}
         <Routes>
           <Route path="/login" element={loading ? sessionStatus : <LoginPage />} />

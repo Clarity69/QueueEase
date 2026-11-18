@@ -29,15 +29,15 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-lg shadow-blue-950/5 md:grid-cols-[0.95fr_1.05fr]" aria-labelledby="staff-login-title">
-      <div className="relative isolate flex flex-col overflow-hidden bg-blue-950 px-6 py-7 text-white sm:px-10 md:min-h-[31rem] md:p-10">
+    <section className="grid flex-1 bg-white lg:grid-cols-2" aria-labelledby="staff-login-title">
+      <div className="relative isolate flex flex-col justify-center overflow-hidden bg-blue-950 px-6 py-8 text-white sm:px-10 lg:px-[8vw] lg:py-12">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_#2563eb,_transparent_68%)]" />
         <div className="flex items-center gap-3 text-sm font-semibold text-blue-100">
           <span className="rounded-xl bg-white/15 p-2.5"><Ticket size={21} aria-hidden="true" /></span>
           QueueEase
         </div>
-        <p className="mt-5 max-w-xs text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl md:mt-10 md:text-4xl">Loket layanan akademik</p>
-        <div aria-hidden="true" className="relative mt-auto hidden h-36 items-center justify-center md:flex">
+        <p className="mt-4 max-w-lg text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:mt-8 lg:text-6xl">Loket layanan akademik</p>
+        <div aria-hidden="true" className="relative mt-10 hidden h-40 max-w-xs items-center justify-center lg:flex">
           <div className="absolute h-24 w-52 -rotate-12 rounded-2xl border border-blue-300/50 bg-blue-400/15" />
           <div className="relative flex h-24 w-52 rotate-6 items-center justify-between rounded-2xl border border-blue-300/50 bg-blue-700 px-5 shadow-xl shadow-blue-950/30">
             <Ticket size={34} className="text-blue-100" />
@@ -47,7 +47,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="flex flex-col justify-center px-6 py-8 sm:px-10 md:px-12 md:py-10">
+      <div className="mx-auto flex w-full max-w-lg flex-col justify-center px-6 py-10 sm:px-10 lg:py-12">
         <h2 id="staff-login-title" className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">Masuk sebagai petugas</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">Gunakan akun petugas untuk mengelola antrean di loket.</p>
         {(error || connectionError) && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error || connectionError}</p>}
