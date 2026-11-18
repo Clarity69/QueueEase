@@ -31,8 +31,11 @@ app.get("/api/health", async (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/queue", queueRoutes);
 
-app.use((err, _req, res, _next) => {
+app.use((err, req, res, _next) => {
   console.error(err);
+  if (req.path.startsWith("/api/auth/") && ["42703", "42P01"].includes(err.code)) {
+    return res.status(503).json({ message: "Skema akun petugas belum siap. Jalankan ulang database/schema.sql di Supabase." });
+  }
   res.status(500).json({ message: "Terjadi kesalahan pada server." });
 });
 

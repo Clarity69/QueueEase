@@ -11,7 +11,11 @@ export default function LoginPage() {
   const submit = async event => {
     event.preventDefault(); setBusy(true); setError("");
     try { setUser(await login(form)); }
-    catch (err) { setError(err.response?.data?.message || "Tidak dapat terhubung ke server."); }
+    catch (err) {
+      setError(err.response?.data?.message || (err.response
+        ? "Server gagal memproses login."
+        : "API tidak dapat dijangkau. Pastikan backend berjalan."));
+    }
     finally { setBusy(false); }
   };
   return <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">

@@ -129,7 +129,8 @@ Terminal 2:
 - `ENOTFOUND` atau timeout: cek koneksi internet, host, port, dan mode pooler dari URI.
 - `self-signed certificate` atau masalah SSL: gunakan konfigurasi `ssl` yang sudah tersedia di `backend/src/config/db.js`; jangan menambahkan opsi SSL lain tanpa memeriksa konfigurasi.
 - `EADDRINUSE 5000`: port 5000 sedang dipakai aplikasi lain.
-- `Network Error`: pastikan backend berjalan dan alamat API frontend tetap `http://localhost:5000/api`.
+- **API tidak dapat dijangkau** dalam mode dev. Jalankan ulang Vite dan periksa `http://localhost:5173/api/health` (sesuaikan port dengan yang ditampilkan Vite). Secara default Vite meneruskan `/api` ke port 5000. Hapus pengaturan `VITE_API_URL` lokal jika masih menunjuk ke alamat lama.
+- **Skema akun petugas belum siap**. Jalankan ulang [`database/schema.sql`](database/schema.sql) di project Supabase yang dipakai backend. Endpoint health hanya menguji koneksi database.
 
 ## Catatan keamanan dan pembelajaran
 - Frontend tidak menyimpan password database.
@@ -155,7 +156,7 @@ Untuk membuat admin baru, jalankan perintah berikut dari folder `backend` setela
 
 Username unik, berisi 3–32 karakter, dan dapat memakai huruf, angka, titik, garis bawah, atau tanda hubung. Huruf besar dan kecil diperlakukan sama. Tiket yang sudah ada tetap tampil di antrean sesuai tanggal, dan tiket baru terhubung ke browser yang mengambilnya.
 
-Konfigurasi opsional: `FRONTEND_URL` di backend (default `http://localhost:5173`), `VITE_API_URL` di frontend (default `http://localhost:5000/api`). Frontend dan API harus berada pada situs yang sama agar cookie SameSite Strict berfungsi saat deployment.
+Konfigurasi opsional: `FRONTEND_URL` di backend (default `http://localhost:5173`), `VITE_API_URL` di frontend (default `/api` melalui proxy Vite dalam mode dev dan `http://localhost:5000/api` pada build). Frontend dan API harus berada pada situs yang sama agar cookie SameSite Strict berfungsi saat deployment.
 
 Jalankan pemeriksaan: `cd backend && npm test`, serta `cd frontend && npm run build` dari folder utama. Tes backend memakai database tiruan untuk memeriksa pengambilan tiket tanpa login, privasi, pembatasan akses petugas, dan sesi admin; koneksi database nyata harus diverifikasi terpisah dengan `npm run db:check`.
 

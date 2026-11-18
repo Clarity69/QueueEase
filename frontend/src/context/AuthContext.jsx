@@ -6,7 +6,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
-    getMe().then(setUser).catch(err => { if (![401, 403].includes(err.response?.status)) setError("Tidak dapat terhubung ke server. Coba muat ulang halaman."); }).finally(() => setLoading(false));
+    getMe().then(setUser).catch(err => {
+      if ([401, 403].includes(err.response?.status)) return;
+      setError(err.response?.data?.message || (err.response
+        ? "Server gagal memeriksa sesi petugas."
+        : "API tidak dapat dijangkau. Pastikan backend berjalan."));
+    }).finally(() => setLoading(false));
     const expired = () => setUser(null);
     window.addEventListener("session-expired", expired);
     return () => window.removeEventListener("session-expired", expired);
