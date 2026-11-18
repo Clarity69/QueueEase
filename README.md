@@ -14,9 +14,13 @@ Mahasiswa dapat melihat nomor yang sedang dipanggil, status tiket, dan jumlah an
 
 ### Panel petugas
 
-Petugas dapat melihat statistik antrean, memanggil nomor berikutnya, dan menyelesaikan layanan.
+Petugas dapat memantau jumlah tiket per kategori, menyaring daftar antrean, dan memanggil nomor berikutnya menurut urutan kedatangan.
 
-![Panel petugas dengan statistik, nomor yang sedang dipanggil, dan daftar antrean](docs/previews/panel-petugas.webp)
+![Panel petugas dengan panggilan aktif, ringkasan kategori layanan, dan daftar antrean](docs/previews/panel-petugas.webp)
+
+### Login petugas
+
+![Halaman login petugas dengan kolom username, kata sandi, dan tombol tampilkan kata sandi](docs/previews/login-petugas.webp)
 
 ### Layar TV
 

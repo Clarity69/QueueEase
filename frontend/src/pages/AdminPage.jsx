@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, CheckCircle2, Clock3, ListOrdered, Megaphone, RefreshCw, SkipForward, Tv, Users } from "lucide-react";
+import { Activity, CheckCircle2, Clock3, FileCheck2, FileText, GraduationCap, ListOrdered, Megaphone, MoreHorizontal, PauseCircle, RefreshCw, SkipForward, Tv, Users, ArrowRight } from "lucide-react";
 import { callNext, completeQueue, getAdminQueue, getStats, requeueTicket, skipQueue } from "../services/api";
 import { Link } from "react-router-dom";
 import QueueTable from "../components/QueueTable";
 import StatCard from "../components/StatCard";
+
+const defaultCategories = new Map([
+  ["Konsultasi Akademik", GraduationCap],
+  ["Surat Aktif Kuliah", FileText],
+  ["Legalisir Dokumen", FileCheck2],
+  ["Pengajuan Cuti", PauseCircle],
+  ["Lainnya", MoreHorizontal],
+]);
 
 export default function AdminPage() {
   const [rows, setRows] = useState([]);
@@ -12,6 +20,7 @@ export default function AdminPage() {
   const [refreshError, setRefreshError] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [category, setCategory] = useState(null);
 
   const refreshSequence = useRef(0);
   const refresh = useCallback(async () => {
@@ -78,6 +87,17 @@ export default function AdminPage() {
   const current = rows.find(row => row.status === "called");
   const next = rows.find(row => row.status === "waiting");
   const updatedTime = lastUpdated?.toLocaleTimeString("id-ID");
+  const categories = new Map([...defaultCategories].map(([name, Icon]) => [name, { Icon, total: 0, waiting: 0 }]));
+  let skippedCount = 0;
+  for (const row of rows) {
+    const summary = categories.get(row.keperluan) || { Icon: MoreHorizontal, total: 0, waiting: 0 };
+    summary.total++;
+    if (row.status === "waiting") summary.waiting++;
+    if (row.status === "skipped") skippedCount++;
+    categories.set(row.keperluan, summary);
+  }
+
+  const visibleRows = category === null ? rows : rows.filter(row => row.keperluan === category);
 
   return (
     <div className="space-y-6">
@@ -138,15 +158,43 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <section aria-labelledby="service-summary" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 id="service-summary" className="text-lg font-bold tracking-tight text-slate-950">Kategori layanan</h3>
+          <button type="button" aria-pressed={category === null} aria-controls="queue-list"
+            onClick={() => setCategory(null)} className={`rounded-full border px-4 py-2 text-sm font-semibold ${category === null ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+            Semua kategori
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          {[...categories].map(([name, { Icon, total, waiting }]) => (
+            <button key={name} type="button" aria-pressed={category === name} aria-controls="queue-list"
+              onClick={() => setCategory(name)}
+              className={`flex min-w-0 flex-col items-start rounded-2xl border px-4 py-4 text-left transition-colors ${category === name ? "border-blue-600 bg-blue-50 ring-1 ring-inset ring-blue-600" : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/50"}`}>
+              <span className="flex w-full items-center justify-between gap-2">
+                <span className="rounded-lg bg-blue-100 p-2 text-blue-800"><Icon size={16} aria-hidden="true" /></span>
+                <ArrowRight size={16} className="text-blue-600" aria-hidden="true" />
+              </span>
+              <span className="mt-3 min-h-10 text-sm font-semibold leading-5 text-slate-900">{name}</span>
+              <span className="mt-1 text-xl font-bold tabular-nums text-slate-950">{updatedTime ? total : "—"} <span className="text-xs font-medium text-slate-600">tiket</span></span>
+              <span className="mt-1 text-xs font-medium text-slate-600">{updatedTime ? `${waiting} menunggu` : "Belum dimuat"}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section id="queue-list" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-6 py-5">
           <h3 className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-950"><ListOrdered size={19} className="text-blue-700" /> Daftar antrean</h3>
-          <p className="text-sm text-slate-600">Urutan kedatangan</p>
+          <p role="status" className="text-sm text-slate-600">
+            {category || "Semua kategori"}{updatedTime && ` · ${visibleRows.length} tiket`}
+            {category === null && skippedCount > 0 && ` · ${skippedCount} dilewati`}
+          </p>
         </div>
-        {updatedTime || refreshError ? (
-          <QueueTable rows={rows} showAction actionsDisabled={busy} onComplete={handleComplete} onRequeue={handleRequeue} />
+        {updatedTime ? (
+          <QueueTable rows={visibleRows} emptyMessage={category ? `Belum ada antrean untuk ${category} hari ini.` : undefined} showAction actionsDisabled={busy} onComplete={handleComplete} onRequeue={handleRequeue} />
         ) : (
-          <p role="status" className="p-6 text-sm text-slate-600">Memuat daftar antrean…</p>
+          <p role="status" className="p-6 text-sm text-slate-600">{refreshError ? "Daftar antrean belum dapat dimuat." : "Memuat daftar antrean…"}</p>
         )}
       </section>
     </div>

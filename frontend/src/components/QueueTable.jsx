@@ -1,8 +1,8 @@
 import StatusBadge from "./StatusBadge";
 
-export default function QueueTable({ rows, onComplete, onRequeue, showAction = false, actionsDisabled = false }) {
+export default function QueueTable({ rows, onComplete, onRequeue, showAction = false, actionsDisabled = false, emptyMessage = "Belum ada antrean hari ini." }) {
   if (!rows.length) {
-    return <div className="p-10 text-center text-sm text-slate-500">Belum ada antrean hari ini.</div>;
+    return <div className="p-10 text-center text-sm text-slate-500">{emptyMessage}</div>;
   }
 
   return (
