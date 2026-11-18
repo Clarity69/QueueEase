@@ -7,6 +7,7 @@ const api = axios.create({
 });
 
 export const getQueue = () => api.get("/queue").then((r) => r.data);
+export const getAdminQueue = () => api.get("/queue/admin").then((r) => r.data);
 export const getStats = () => api.get("/queue/stats").then((r) => r.data);
 export const createQueue = (payload) => api.post("/queue", payload).then((r) => r.data);
 export const callNext = () => api.patch("/queue/call-next").then((r) => r.data);
@@ -14,9 +15,12 @@ export const completeQueue = (id) => api.patch(`/queue/${id}/done`).then((r) => 
 
 export const getMe = () => api.get("/auth/me").then(r => r.data);
 export const login = (payload) => api.post("/auth/login", payload).then(r => r.data);
-export const register = (payload) => api.post("/auth/register", payload).then(r => r.data);
 export const logout = () => api.post("/auth/logout").then(r => r.data);
 api.interceptors.response.use(response => response, error => {
-  if (error.response?.status === 401 && !["/auth/login", "/auth/me"].includes(error.config?.url)) window.dispatchEvent(new Event("session-expired"));
+  const { url, method } = error.config || {};
+  const adminRequest = url === "/queue/admin" || url === "/queue/stats" || (method === "patch" && url?.startsWith("/queue/"));
+  if (adminRequest && [401, 403].includes(error.response?.status)) {
+    window.dispatchEvent(new Event("session-expired"));
+  }
   return Promise.reject(error);
 });

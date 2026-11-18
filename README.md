@@ -19,9 +19,10 @@ Petugas dapat melihat statistik antrean, memanggil nomor berikutnya, dan menyele
 ![Panel petugas dengan statistik, nomor yang sedang dipanggil, dan daftar antrean](docs/previews/panel-petugas.webp)
 
 ## Fitur
-- Login dan pendaftaran mahasiswa dengan NIM unik serta kata sandi. Sesi memakai cookie HttpOnly selama 24 jam.
-- Dasbor mahasiswa (`/dashboard`): tiket hari ini, kode UUID unik, status, dan jumlah antrean di depan. Tiket tetap tersedia setelah muat ulang.
-- Satu antrean aktif per mahasiswa per hari. NIM dan kode tiket hanya terlihat oleh pemilik dan petugas.
+- Mahasiswa dapat mengambil dan memantau tiket tanpa login. Formulir meminta nama, NIM, dan keperluan.
+- Dasbor mahasiswa (`/dashboard`) menampilkan tiket hari ini, status, kode unik, dan jumlah antrean di depan. Buka di browser yang sama untuk melihat tiket setelah muat ulang.
+- Satu antrean aktif per NIM per hari. Daftar publik menampilkan nomor, keperluan, dan status. Nama, NIM, dan kode unik bisa dilihat dari browser pemegang tiket atau oleh petugas.
+- Login dengan username dan kata sandi tersedia untuk petugas. Sesi memakai cookie HttpOnly selama 24 jam.
 - Halaman mahasiswa (`/`): mengambil nomor antrean dan melihat daftar antrean.
 - Halaman petugas (`/admin`): melihat statistik, memanggil antrean berikutnya, dan menyelesaikan antrean.
 - Data diperbarui otomatis setiap 5 detik.
@@ -103,9 +104,9 @@ Jika sukses, akan muncul JSON dengan status `ok` dan pesan bahwa API dan Postgre
 - Petugas: http://localhost:5173/admin
 
 ## G. Uji alur antrean
-1. Buka `/login`, daftar menggunakan nama, NIM 5–20 digit, dan kata sandi minimal 8 karakter. Lalu pilih keperluan di halaman mahasiswa.
-2. Klik **Ambil Nomor Antrean**. Nomor seperti K001 akan muncul sesuai keperluan.
-3. Masuk menggunakan akun yang sudah diberi peran petugas, lalu buka `/admin`.
+1. Buka halaman mahasiswa (`/`), isi nama dan NIM 5–20 digit, lalu pilih keperluan.
+2. Klik **Ambil Nomor Antrean**. Nomor seperti K001 akan muncul sesuai keperluan. Buka **Antrean Saya** di browser yang sama untuk memantau tiket.
+3. Buka **Masuk Petugas** (`/login`) dan masuk menggunakan akun admin.
 4. Klik **Panggil Berikutnya**.
 5. Status antrean berubah menjadi **Dipanggil**.
 6. Klik **Selesaikan** pada antrean yang ingin diselesaikan.
@@ -134,25 +135,29 @@ Terminal 2:
 - Frontend tidak menyimpan password database.
 - Express menjadi perantara antara React dan PostgreSQL.
 - Connection string database hanya berada di `backend/.env`; jangan commit file ini ke GitHub.
-- Backend menggunakan koneksi PostgreSQL dengan hak server. RLS diaktifkan dan akses Data API untuk `anon`/`authenticated` dicabut; otorisasi mahasiswa dan petugas diperiksa di Express.
-- Kata sandi di-hash menggunakan scrypt; token sesi disimpan sebagai SHA-256 di database. Login dan pendaftaran dibatasi 30 percobaan per IP per 15 menit. Gunakan HTTPS dan `NODE_ENV=production` saat dipublikasikan.
+- Backend menggunakan koneksi PostgreSQL dengan hak server. RLS diaktifkan dan akses Data API untuk `anon`/`authenticated` dicabut; akses petugas dan detail tiket diperiksa di Express.
+- Kata sandi di-hash menggunakan scrypt; token sesi disimpan sebagai SHA-256 di database. Login petugas dibatasi 30 percobaan per IP per 15 menit. Gunakan HTTPS dan `NODE_ENV=production` saat dipublikasikan.
 - Refresh otomatis 5 detik menggunakan polling, bukan WebSocket.
 
-## Peningkatan database dan akun petugas
+## Akun petugas
 
-Untuk instalasi lama, jalankan kembali seluruh `database/schema.sql` di SQL Editor Supabase sebelum menjalankan aplikasi versi ini. Data antrean lama dipertahankan, tetapi tidak ditautkan otomatis ke akun baru.
+Untuk database yang sudah ada, jalankan ulang [`database/schema.sql`](database/schema.sql) di SQL Editor Supabase sebelum menjalankan backend versi ini. Migrasi menyalin NIM lama ke kolom username untuk setiap admin yang belum memiliki username. Admin yang sudah ada masuk dengan username awal tersebut dan kata sandi sebelumnya.
 
-Semua pendaftaran menghasilkan akun mahasiswa. Untuk membuat petugas, daftarkan akun terlebih dahulu, lalu jalankan SQL berikut menggunakan NIM akun yang dipilih:
+Untuk membuat admin baru, jalankan perintah berikut dari folder `backend` setelah `backend/.env` dan skema database siap. Ganti nama dan username contoh dengan data petugas.
 
-```sql
-UPDATE public.app_users SET role = 'admin' WHERE nim = 'NIM_PETUGAS';
+```bash
+(
+  read -rsp 'Kata sandi petugas (8–128 karakter): ' password
+  printf '\n' >&2
+  printf '%s' "$password" | npm run admin:create -- "Nama Petugas" loket.akademik
+)
 ```
 
-Tidak ada akun atau kata sandi petugas bawaan. Login ulang setelah mengubah peran agar navigasi diperbarui.
+Username unik, berisi 3–32 karakter, dan dapat memakai huruf, angka, titik, garis bawah, atau tanda hubung. Huruf besar dan kecil diperlakukan sama. Tiket yang sudah ada tetap tampil di antrean sesuai tanggal, dan tiket baru terhubung ke browser yang mengambilnya.
 
 Konfigurasi opsional: `FRONTEND_URL` di backend (default `http://localhost:5173`), `VITE_API_URL` di frontend (default `http://localhost:5000/api`). Frontend dan API harus berada pada situs yang sama agar cookie SameSite Strict berfungsi saat deployment.
 
-Jalankan pemeriksaan: `cd backend && npm test`, serta `cd frontend && npm run build` dari folder utama. Tes backend memakai database tiruan untuk memeriksa login, sesi, akses petugas, privasi tiket, dan logout; koneksi database nyata harus diverifikasi terpisah dengan `npm run db:check`.
+Jalankan pemeriksaan: `cd backend && npm test`, serta `cd frontend && npm run build` dari folder utama. Tes backend memakai database tiruan untuk memeriksa pengambilan tiket tanpa login, privasi, pembatasan akses petugas, dan sesi admin; koneksi database nyata harus diverifikasi terpisah dengan `npm run db:check`.
 
 ## Kode antrean per keperluan
 

@@ -1,36 +1,43 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Clock3, RefreshCw, Send, Ticket } from "lucide-react";
 import { createQueue, getQueue } from "../services/api";
 import QueueTable from "../components/QueueTable";
 import StatusBadge from "../components/StatusBadge";
 
 export default function StudentPage() {
-  const { user } = useAuth();
-  const [form, setForm] = useState({ nama: user.nama, keperluan: "Konsultasi Akademik" });
+  const [form, setForm] = useState({ nama: "", nim: "", keperluan: "Konsultasi Akademik" });
   const [rows, setRows] = useState([]);
   const [myTicket, setMyTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const refreshSequence = useRef(0);
 
   const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     try {
       const data = await getQueue();
+      if (sequence !== refreshSequence.current) return;
       setRows(data);
       setLastUpdated(new Date());
-      setError("");
-      setMyTicket(data.find(item => item.user_id === user.id && item.status !== "done") || null);
+      setRefreshError("");
+      setMyTicket(data.find(item => item.is_mine) || null);
     } catch {
-      setError("Tidak dapat terhubung ke server. Pastikan backend berjalan.");
+      if (sequence === refreshSequence.current) {
+        setRefreshError("Tidak dapat terhubung ke server. Pastikan backend berjalan.");
+      }
     }
-  }, [user.id]);
+  }, []);
 
   useEffect(() => {
     refresh();
     const timer = setInterval(refresh, 5000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      refreshSequence.current++;
+    };
   }, [refresh]);
 
   const handleSubmit = async (event) => {
@@ -40,7 +47,7 @@ export default function StudentPage() {
     try {
       const ticket = await createQueue(form);
       setMyTicket(ticket);
-      setForm({ nama: user.nama, keperluan: "Konsultasi Akademik" });
+      setForm({ nama: "", nim: "", keperluan: "Konsultasi Akademik" });
       await refresh();
     } catch (err) {
       setError(err.response?.data?.message || "Gagal mengambil antrean.");
@@ -49,21 +56,21 @@ export default function StudentPage() {
     }
   };
 
+  const activeTicket = myTicket && myTicket.status !== "done";
   const waiting = rows.filter((row) => row.status === "waiting").length;
 
   return (
     <div className="space-y-7">
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 px-6 py-8 text-white shadow-lg shadow-blue-200 sm:px-9">
-        <p className="text-sm font-semibold text-blue-100">PELAYANAN AKADEMIK</p>
-        <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Antrean tanpa harus menunggu lama.</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100">Ambil nomor antrean secara online, lalu pantau status antrean Anda melalui halaman ini.</p>
+      <section className="overflow-hidden rounded-3xl bg-blue-950 px-6 py-8 text-white sm:px-9">
+        <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Antrean layanan akademik</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100">Isi nama, NIM, dan keperluan untuk mengambil nomor antrean.</p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2"><Clock3 size={16} /> {waiting} antrean menunggu</span>
           <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2"><RefreshCw size={15} /> Update otomatis 5 detik</span>
         </div>
       </section>
 
-      {error && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18} />{error}</div>}
+      {(error || refreshError) && <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18} />{error || refreshError}</div>}
 
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -74,9 +81,9 @@ export default function StudentPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="student-name" className="mb-1.5 block text-sm font-semibold text-slate-700">Nama mahasiswa</label>
-              <input id="student-name" readOnly required maxLength="100" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} placeholder="Contoh: Fiky Anggara" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              <input id="student-name" required maxLength={100} autoComplete="name" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} placeholder="Contoh: Fiky Anggara" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
             </div>
-            <div><label htmlFor="student-nim" className="mb-1.5 block text-sm font-semibold text-slate-700">NIM</label><input id="student-nim" readOnly value={user.nim} className="auth-input bg-slate-50" /></div>
+            <div><label htmlFor="student-nim" className="mb-1.5 block text-sm font-semibold text-slate-700">NIM</label><input id="student-nim" required pattern="[0-9]{5,20}" title="5–20 digit angka" inputMode="numeric" maxLength={20} value={form.nim} onChange={(e) => setForm({ ...form, nim: e.target.value })} className="auth-input" /></div>
             <div>
               <label htmlFor="purpose" className="mb-1.5 block text-sm font-semibold text-slate-700">Keperluan</label>
               <select id="purpose" value={form.keperluan} onChange={(e) => setForm({ ...form, keperluan: e.target.value })} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
@@ -87,7 +94,7 @@ export default function StudentPage() {
                 <option value="Lainnya">Lainnya (U)</option>
               </select>
             </div>
-            <button disabled={loading || Boolean(myTicket)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+            <button disabled={loading || Boolean(activeTicket)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
               <Send size={17} /> {loading ? "Memproses..." : "Ambil Nomor Antrean"}
             </button>
           </form>

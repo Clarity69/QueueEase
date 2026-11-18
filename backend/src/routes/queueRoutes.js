@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { requireAuth, requireAdmin, readCookie } from "../middleware/auth.js";
 import { formatQueueNumber, servicePrefixes } from "../utils/queueTicket.js";
 import pool from "../config/db.js";
 
 const router = Router();
-router.use(requireAuth);
+
 
 const today = `CURRENT_DATE`;
 
@@ -15,24 +15,39 @@ function serialize(row) {
   };
 }
 
-// GET /api/queue – daftar antrean hari ini
-router.get("/", async (req, res) => {
+const ticketCookie = "queueease_ticket";
+
+function guestTicket(req) {
+  const token = readCookie(req, ticketCookie);
+  return /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(token || "") ? token.toLowerCase() : null;
+}
+
+async function listQueue(req, res) {
   try {
     const result = await pool.query(`
-      SELECT id, queue_number, service_number, nama, nim, unique_code, user_id, keperluan, status, created_at, service_date
+      SELECT id, queue_number, service_number, nama, nim, unique_code, keperluan, status, created_at, service_date
       FROM antrean
       WHERE service_date = ${today}
       ORDER BY queue_number ASC
     `);
-    res.json(result.rows.map(row => req.user.role === "admin" || row.user_id === req.user.id ? serialize(row) : { id: row.id, ticket: formatQueueNumber(row), queue_number: row.queue_number, keperluan: row.keperluan, status: row.status }));
+    const token = guestTicket(req);
+    res.set("Cache-Control", "no-store");
+    res.json(result.rows.map(row => {
+      if (req.user?.role === "admin") return serialize(row);
+      if (row.unique_code === token && token) return { ...serialize(row), is_mine: true };
+      return { id: row.id, ticket: formatQueueNumber(row), queue_number: row.queue_number, keperluan: row.keperluan, status: row.status };
+    }));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Gagal mengambil data antrean." });
   }
-});
+}
+
+router.get("/", listQueue);
+router.get("/admin", requireAuth, requireAdmin, listQueue);
 
 // GET /api/queue/stats – statistik antrean hari ini
-router.get("/stats", async (_req, res) => {
+router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -52,14 +67,13 @@ router.get("/stats", async (_req, res) => {
 
 // POST /api/queue – mahasiswa mengambil nomor antrean
 router.post("/", async (req, res) => {
-  const { nama, nim, id: userId } = req.user;
-  const keperluan = String(req.body.keperluan || "").trim();
+  const { nama: rawName, nim: rawNim, keperluan: rawService } = req.body || {};
+  const nama = typeof rawName === "string" ? rawName.trim() : "";
+  const nim = typeof rawNim === "string" ? rawNim.trim() : "";
+  const keperluan = typeof rawService === "string" ? rawService.trim() : "";
 
-  if (!nama || !keperluan) {
-    return res.status(400).json({ message: "Nama dan keperluan wajib diisi." });
-  }
-  if (nama.length > 100 || keperluan.length > 150) {
-    return res.status(400).json({ message: "Nama atau keperluan terlalu panjang." });
+  if (!nama || nama.length > 100 || !/^[0-9]{5,20}$/.test(nim)) {
+    return res.status(400).json({ message: "Isi nama maksimal 100 karakter dan NIM 5–20 digit." });
   }
 
   if (!Object.hasOwn(servicePrefixes, keperluan)) {
@@ -72,7 +86,12 @@ router.post("/", async (req, res) => {
     await client.query("BEGIN");
     // Advisory lock mencegah dua permintaan bersamaan memperoleh nomor yang sama.
     await client.query("SELECT pg_advisory_xact_lock(20261111)");
-    const active = await client.query("SELECT id FROM antrean WHERE user_id = $1 AND service_date = CURRENT_DATE AND status IN ('waiting', 'called')", [userId]);
+    const active = await client.query(
+      `SELECT id FROM antrean
+       WHERE service_date = CURRENT_DATE AND status IN ('waiting', 'called')
+         AND (nim = $1 OR unique_code = $2::uuid)`,
+      [nim, guestTicket(req)]
+    );
     if (active.rowCount) {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "Anda masih memiliki antrean aktif hari ini." });
@@ -87,13 +106,22 @@ router.post("/", async (req, res) => {
       [keperluan]
     );
     const inserted = await client.query(
-      `INSERT INTO antrean (queue_number, nama, keperluan, nim, user_id, service_number)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO antrean (queue_number, nama, keperluan, nim, service_number)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [next.rows[0].next_number, nama, keperluan, nim, userId, serviceNext.rows[0].next_number]
+      [next.rows[0].next_number, nama, keperluan, nim, serviceNext.rows[0].next_number]
     );
     await client.query("COMMIT");
-    res.status(201).json(serialize(inserted.rows[0]));
+    const ticket = inserted.rows[0];
+    res.cookie(ticketCookie, ticket.unique_code, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      path: "/api/queue",
+      maxAge: 86400000,
+    });
+    res.set("Cache-Control", "no-store");
+    res.status(201).json({ ...serialize(ticket), is_mine: true });
   } catch (error) {
     if (client) await client.query("ROLLBACK");
     console.error(error);
@@ -104,7 +132,7 @@ router.post("/", async (req, res) => {
 });
 
 // PATCH /api/queue/call-next – panggil antrean menunggu paling awal
-router.patch("/call-next", requireAdmin, async (_req, res) => {
+router.patch("/call-next", requireAuth, requireAdmin, async (_req, res) => {
   let client;
   try {
     client = await pool.connect();
@@ -145,7 +173,7 @@ router.patch("/call-next", requireAdmin, async (_req, res) => {
 });
 
 // PATCH /api/queue/:id/done – tandai antrean selesai
-router.patch("/:id/done", requireAdmin, async (req, res) => {
+router.patch("/:id/done", requireAuth, requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ message: "ID antrean tidak valid." });

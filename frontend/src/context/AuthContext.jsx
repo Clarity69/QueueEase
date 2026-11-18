@@ -6,7 +6,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
-    getMe().then(setUser).catch(err => { if (err.response?.status !== 401) setError("Tidak dapat terhubung ke server. Coba muat ulang halaman."); }).finally(() => setLoading(false));
+    getMe().then(setUser).catch(err => { if (![401, 403].includes(err.response?.status)) setError("Tidak dapat terhubung ke server. Coba muat ulang halaman."); }).finally(() => setLoading(false));
     const expired = () => setUser(null);
     window.addEventListener("session-expired", expired);
     return () => window.removeEventListener("session-expired", expired);

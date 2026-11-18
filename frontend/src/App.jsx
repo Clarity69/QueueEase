@@ -11,7 +11,8 @@ import { useState } from "react";
 function Layout() {
   const { user, loading, signOut } = useAuth();
   const [logoutError, setLogoutError] = useState("");
-  if (loading) return <p role="status" className="p-8 text-center">Memuat sesi...</p>;
+  const isAdmin = user?.role === "admin";
+  const sessionStatus = <p role="status" className="p-8 text-center">Memuat sesi...</p>;
   const linkClass = ({ isActive }) =>
     `inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
       isActive ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
@@ -29,22 +30,22 @@ function Layout() {
             </div>
           </div>
           <nav aria-label="Navigasi utama" className="flex flex-wrap items-center gap-2">
-            {user && <>
-              <NavLink to="/" end className={linkClass}><GraduationCap size={17} /> Ambil Antrean</NavLink>
-              <NavLink to="/dashboard" className={linkClass}><Ticket size={17} /> Antrean Saya</NavLink>
-              {user.role === "admin" && <NavLink to="/admin" className={linkClass}><LayoutDashboard size={17} /> Petugas</NavLink>}
-              <button onClick={async () => { try { await signOut(); } catch { setLogoutError("Gagal keluar. Coba kembali."); } }} className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600">Keluar</button>
-            </>}
+            <NavLink to="/" end className={linkClass}><GraduationCap size={17} /> Ambil Antrean</NavLink>
+            <NavLink to="/dashboard" className={linkClass}><Ticket size={17} /> Antrean Saya</NavLink>
+            {!loading && <NavLink to={isAdmin ? "/admin" : "/login"} className={linkClass}>
+              <LayoutDashboard size={17} /> {isAdmin ? "Petugas" : "Masuk Petugas"}
+            </NavLink>}
+            {isAdmin && <button onClick={async () => { try { await signOut(); setLogoutError(""); } catch { setLogoutError("Gagal keluar. Coba kembali."); } }} className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600">Keluar</button>}
           </nav>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {logoutError && <p role="alert">{logoutError}</p>}
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={user ? <StudentPage /> : <Navigate to="/login" replace />} />
-          <Route path="/admin" element={user?.role === "admin" ? <AdminPage /> : <Navigate to={user ? "/dashboard" : "/login"} replace />} />
-          <Route path="/dashboard" element={user ? <DashboardPage /> : <Navigate to="/login" replace />} />
+          <Route path="/login" element={loading ? sessionStatus : <LoginPage />} />
+          <Route path="/" element={<StudentPage />} />
+          <Route path="/admin" element={loading ? sessionStatus : isAdmin ? <AdminPage /> : <Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
