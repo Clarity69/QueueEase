@@ -18,13 +18,18 @@ Petugas dapat melihat statistik antrean, memanggil nomor berikutnya, dan menyele
 
 ![Panel petugas dengan statistik, nomor yang sedang dipanggil, dan daftar antrean](docs/previews/panel-petugas.webp)
 
+### Layar TV
+
+![Layar TV dengan nomor K001 di Loket 1 dan daftar antrean berikutnya](docs/previews/layar-tv.webp)
+
 ## Fitur
 - Mahasiswa dapat mengambil dan memantau tiket tanpa login. Formulir meminta nama, NIM, dan keperluan.
 - Dasbor mahasiswa (`/dashboard`) menampilkan tiket hari ini, status, kode unik, dan jumlah antrean di depan. Buka di browser yang sama untuk melihat tiket setelah muat ulang.
 - Satu antrean aktif per NIM per hari. Daftar publik menampilkan nomor, keperluan, dan status. Nama, NIM, dan kode unik bisa dilihat dari browser pemegang tiket atau oleh petugas.
 - Login dengan username dan kata sandi tersedia untuk petugas. Sesi memakai cookie HttpOnly selama 24 jam.
 - Halaman mahasiswa (`/`): mengambil nomor antrean dan melihat daftar antrean.
-- Halaman petugas (`/admin`): melihat statistik, memanggil antrean berikutnya, dan menyelesaikan antrean.
+- Halaman petugas (`/admin`) untuk memanggil, melewati, mengembalikan, dan menyelesaikan antrean.
+- Layar TV publik (`/display`) menampilkan nomor yang dipanggil dan hingga lima antrean berikutnya.
 - Data diperbarui otomatis setiap 5 detik.
 - Nomor antrean harian per keperluan: Konsultasi Akademik K001, Surat Aktif Kuliah S001, Legalisir Dokumen L001, Pengajuan Cuti C001, dan Lainnya U001. Setiap jenis memiliki urutan sendiri.
 
@@ -102,6 +107,15 @@ Jika sukses, akan muncul JSON dengan status `ok` dan pesan bahwa API dan Postgre
 ## F. Halaman aplikasi
 - Mahasiswa: http://localhost:5173/
 - Petugas: http://localhost:5173/admin
+- Layar TV: http://localhost:5173/display
+
+### Lewati tiket dan tampilkan panggilan di TV
+
+Pada instalasi lama, jalankan ulang [`database/schema.sql`](database/schema.sql) di SQL Editor Supabase sebelum memakai tombol **Lewati**.
+
+- Jika pemegang tiket tidak hadir, klik **Lewati** pada panggilan aktif. Tiket berstatus **Dilewati** dan nomor menunggu berikutnya langsung dipanggil jika tersedia.
+- Jika pemegang tiket datang, klik **Kembalikan** pada baris tiket. Tiket kembali menunggu menurut urutan kedatangan semula.
+- Klik **Buka layar TV** di panel petugas, atau buka `/display` langsung dari perangkat yang terhubung ke TV. Gunakan tombol layar penuh jika tersedia. Tampilan diperbarui otomatis dan hanya menampilkan nomor serta jenis layanan.
 
 ## G. Uji alur antrean
 1. Buka halaman mahasiswa (`/`), isi nama dan NIM 5–20 digit, lalu pilih keperluan.

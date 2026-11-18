@@ -8,9 +8,12 @@ const api = axios.create({
 
 export const getQueue = () => api.get("/queue").then((r) => r.data);
 export const getAdminQueue = () => api.get("/queue/admin").then((r) => r.data);
+export const getDisplayQueue = () => api.get("/queue/display", { timeout: 4500 }).then((r) => r.data);
 export const getStats = () => api.get("/queue/stats").then((r) => r.data);
 export const createQueue = (payload) => api.post("/queue", payload).then((r) => r.data);
 export const callNext = () => api.patch("/queue/call-next").then((r) => r.data);
+export const skipQueue = (id) => api.patch(`/queue/${id}/skip`).then((r) => r.data);
+export const requeueTicket = (id) => api.patch(`/queue/${id}/requeue`).then((r) => r.data);
 export const completeQueue = (id) => api.patch(`/queue/${id}/done`).then((r) => r.data);
 
 export const getMe = () => api.get("/auth/me").then(r => r.data);

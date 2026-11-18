@@ -33,7 +33,7 @@ export default function DashboardPage() {
   const called = rows.find(row => row.status === "called");
   const waiting = rows.filter(row => row.status === "waiting").length;
   const ahead = ticket?.status === "waiting" ? rows.filter(
-    row => row.queue_number < ticket.queue_number && row.status !== "done"
+    row => row.queue_number < ticket.queue_number && (row.status === "waiting" || row.status === "called")
   ).length : 0;
 
   return (
@@ -70,6 +70,9 @@ export default function DashboardPage() {
                 )}
                 {ticket.status === "called" && (
                   <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">Silakan menuju loket pelayanan.</p>
+                )}
+                {ticket.status === "skipped" && (
+                  <p role="status" className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">Tiket Anda dilewati. Hubungi petugas untuk kembali ke antrean.</p>
                 )}
                 {ticket.status === "done" && <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700">Ambil antrean baru <ArrowRight size={16} /></Link>}
                 <dl className="space-y-3 border-t border-dashed border-slate-200 pt-4 text-sm">

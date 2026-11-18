@@ -1,6 +1,6 @@
 import StatusBadge from "./StatusBadge";
 
-export default function QueueTable({ rows, onComplete, showAction = false, actionsDisabled = false }) {
+export default function QueueTable({ rows, onComplete, onRequeue, showAction = false, actionsDisabled = false }) {
   if (!rows.length) {
     return <div className="p-10 text-center text-sm text-slate-500">Belum ada antrean hari ini.</div>;
   }
@@ -26,6 +26,11 @@ export default function QueueTable({ rows, onComplete, showAction = false, actio
               <td className="px-5 py-4"><StatusBadge status={row.status} /></td>
               {showAction && (
                 <td className="sticky right-0 bg-white px-3 py-4 sm:static sm:bg-transparent sm:px-5">
+                  {row.status === "skipped" && (
+                    <button type="button" disabled={actionsDisabled} aria-label={`Kembalikan tiket ${row.ticket} ke antrean`} onClick={() => onRequeue(row.id)} className="mb-1 mr-2 rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-50 disabled:opacity-50">
+                      Kembalikan
+                    </button>
+                  )}
                   {row.status !== "done" && (
                     <button type="button" disabled={actionsDisabled} aria-label={`Selesaikan tiket ${row.ticket}`} onClick={() => onComplete(row.id)} className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50">
                       Selesaikan

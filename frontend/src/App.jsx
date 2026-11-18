@@ -5,6 +5,7 @@ import AdminPage from "./pages/AdminPage";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
+import DisplayPage from "./pages/DisplayPage";
 import DashboardPage from "./pages/DashboardPage";
 import { useState } from "react";
 
@@ -57,5 +58,10 @@ function Layout() {
 }
 
 export default function App() {
-  return <AuthProvider><Layout /></AuthProvider>;
+  return (
+    <Routes>
+      <Route path="/display" element={<DisplayPage />} />
+      <Route path="/*" element={<AuthProvider><Layout /></AuthProvider>} />
+    </Routes>
+  );
 }

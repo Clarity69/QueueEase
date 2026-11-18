@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, CheckCircle2, Clock3, ListOrdered, Megaphone, RefreshCw, Users } from "lucide-react";
-import { callNext, completeQueue, getAdminQueue, getStats } from "../services/api";
+import { Activity, CheckCircle2, Clock3, ListOrdered, Megaphone, RefreshCw, SkipForward, Tv, Users } from "lucide-react";
+import { callNext, completeQueue, getAdminQueue, getStats, requeueTicket, skipQueue } from "../services/api";
+import { Link } from "react-router-dom";
 import QueueTable from "../components/QueueTable";
 import StatCard from "../components/StatCard";
 
@@ -61,6 +62,19 @@ export default function AdminPage() {
     "Gagal menyelesaikan antrean."
   );
 
+  const handleSkip = id => runAction(
+    () => skipQueue(id),
+    ({ skipped, current: called }) => called
+      ? `Tiket ${skipped.ticket} dilewati. Nomor ${called.ticket} dipanggil.`
+      : `Tiket ${skipped.ticket} dilewati. Belum ada antrean menunggu.`,
+    "Gagal melewati antrean."
+  );
+  const handleRequeue = id => runAction(
+    () => requeueTicket(id),
+    ticket => `Tiket ${ticket.ticket} kembali ke antrean.`,
+    "Gagal mengembalikan tiket ke antrean."
+  );
+
   const current = rows.find(row => row.status === "called");
   const next = rows.find(row => row.status === "waiting");
   const updatedTime = lastUpdated?.toLocaleTimeString("id-ID");
@@ -72,9 +86,14 @@ export default function AdminPage() {
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Panel petugas</h2>
           <p className="mt-2 text-sm text-slate-600">Kelola antrean layanan akademik hari ini.</p>
         </div>
-        <p className="flex items-center gap-2 text-sm text-slate-600">
-          <RefreshCw size={15} /> {updatedTime ? `Diperbarui pukul ${updatedTime}` : "Pembaruan otomatis setiap 5 detik"}
-        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <p className="flex items-center gap-2 text-sm text-slate-600">
+            <RefreshCw size={15} /> {updatedTime ? `Diperbarui pukul ${updatedTime}` : "Pembaruan otomatis setiap 5 detik"}
+          </p>
+          <Link to="/display" target="_blank" rel="noopener" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-50">
+            <Tv size={17} /> Buka layar TV
+          </Link>
+        </div>
       </header>
 
       {refreshError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{refreshError}</p>}
@@ -101,6 +120,13 @@ export default function AdminPage() {
               <Megaphone size={17} /> Panggil berikutnya
             </button>
           </div>
+          {current && (
+            <div className="px-6 pb-4 sm:px-8">
+              <button type="button" onClick={() => handleSkip(current.id)} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50">
+                <SkipForward size={17} /> Lewati {current.ticket}
+              </button>
+            </div>
+          )}
           {current && next && <p className="px-6 pb-5 text-xs text-slate-600 sm:px-8">Tiket {current.ticket} otomatis selesai saat nomor berikutnya dipanggil.</p>}
         </section>
 
@@ -118,7 +144,7 @@ export default function AdminPage() {
           <p className="text-sm text-slate-600">Urutan kedatangan</p>
         </div>
         {updatedTime || refreshError ? (
-          <QueueTable rows={rows} showAction actionsDisabled={busy} onComplete={handleComplete} />
+          <QueueTable rows={rows} showAction actionsDisabled={busy} onComplete={handleComplete} onRequeue={handleRequeue} />
         ) : (
           <p role="status" className="p-6 text-sm text-slate-600">Memuat daftar antrean…</p>
         )}

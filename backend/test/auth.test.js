@@ -5,7 +5,7 @@ import pool from '../src/config/db.js';
 import authRoutes, { hashPassword } from '../src/routes/authRoutes.js';
 import queueRoutes from '../src/routes/queueRoutes.js';
 
-test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () => {
+test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async () => {
   const admin = { id: '1', nama: 'Petugas Tes', username: 'loket.akademik', role: 'admin', password_hash: await hashPassword('password-test') };
   const student = { ...admin, id: '2', username: 'mahasiswa', role: 'student' };
   const sessions = new Map();
@@ -26,12 +26,21 @@ test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () =
       return { rows: account ? [user] : [] };
     }
     if (sql.startsWith('DELETE FROM user_sessions')) { sessions.delete(args[0]); return { rows: [] }; }
+    if (sql.includes("SET status = 'waiting'")) {
+      const ticket = tickets.find(ticket => ticket.id === args[0] && ticket.status === 'skipped');
+      if (!ticket) return { rowCount: 0, rows: [] };
+      ticket.status = 'waiting';
+      return { rowCount: 1, rows: [ticket] };
+    }
     if (sql.includes("SET status = 'done'")) {
       const ticket = tickets.find(ticket => ticket.id === String(args[0]));
       ticket.status = 'done';
       return { rowCount: 1, rows: [ticket] };
     }
     if (sql.includes('COUNT(*)')) return { rows: [{ total: tickets.length }] };
+    if (sql.includes('LIMIT 6')) {
+      return { rows: [...tickets.filter(ticket => ticket.status === 'called'), ...tickets.filter(ticket => ticket.status === 'waiting')].slice(0, 6) };
+    }
     if (sql.includes('FROM antrean')) return { rows: tickets };
     throw new Error('Unexpected query: ' + sql);
   };
@@ -41,7 +50,7 @@ test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () =
       const query = sql.trim();
       if (['BEGIN', 'COMMIT', 'ROLLBACK', 'SELECT pg_advisory_xact_lock(20261111)'].includes(query)) return {};
       if (query.startsWith('SELECT id') && query.includes('nim = $1')) {
-        const rows = tickets.filter(ticket => ticket.status !== 'done' && (ticket.nim === args[0] || ticket.unique_code === args[1]));
+        const rows = tickets.filter(ticket => ['waiting', 'called', 'skipped'].some(status => status === ticket.status && query.includes("'" + status + "'")) && (ticket.nim === args[0] || ticket.unique_code === args[1]));
         return { rowCount: rows.length, rows };
       }
       if (query.includes('MAX(queue_number)')) return { rows: [{ next_number: tickets.length + 1 }] };
@@ -56,6 +65,12 @@ test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () =
         };
         tickets.push(ticket);
         return { rows: [ticket] };
+      }
+      if (query.includes("SET status = 'skipped'")) {
+        const ticket = tickets.find(ticket => ticket.id === args[0] && ticket.status === 'called');
+        if (!ticket) return { rowCount: 0, rows: [] };
+        ticket.status = 'skipped';
+        return { rowCount: 1, rows: [ticket] };
       }
       if (query.includes("SET status = 'done'")) {
         for (const ticket of tickets) if (ticket.status === 'called') ticket.status = 'done';
@@ -94,9 +109,10 @@ test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () =
         json(data) { resolve({ status, json: async () => data, headers: { get: name => name === "set-cookie" ? cookie : headers.get(name.toLowerCase()) } }); },
       };
       const handlers = router.stack.filter(layer => !layer.route).map(layer => layer.handle);
-      const route = router.stack.find(layer => layer.route && layer.route.methods[req.method.toLowerCase()] && (layer.route.path === path || (layer.route.path === '/:id/done' && /^\/\d+\/done$/.test(path))));
+      const dynamic = path.match(/^\/([^/]+)\/(done|skip|requeue)$/);
+      const route = router.stack.find(layer => layer.route && layer.route.methods[req.method.toLowerCase()] && (layer.route.path === path || (dynamic && layer.route.path === '/:id/' + dynamic[2])));
       if (!route) return resolve({ status: 404 });
-      if (path.endsWith('/done')) req.params.id = path.split('/')[1];
+      if (dynamic) req.params.id = dynamic[1];
       handlers.push(...route.route.stack.map(layer => layer.handle));
       const next = error => {
         if (error) return reject(error);
@@ -117,7 +133,7 @@ test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () =
       id: '1', ticket: 'K001', queue_number: 1, keperluan: 'Konsultasi Akademik', status: 'waiting',
     });
     for (const path of ['/queue/admin', '/queue/stats']) assert.equal((await fetch(path)).status, 401);
-    for (const path of ['/queue/call-next', '/queue/1/done']) assert.equal((await patch(path)).status, 401);
+    for (const path of ['/queue/call-next', '/queue/1/done', '/queue/1/skip', '/queue/1/requeue']) assert.equal((await patch(path)).status, 401);
 
     assert.equal((await post('/queue', { ...ticketData, nim: 'bad' })).status, 400);
     assert.equal((await post('/queue', { ...ticketData, keperluan: 'invalid' })).status, 400);
@@ -172,6 +188,32 @@ test('tiket tamu, privasi, pembatasan akses petugas, dan sesi admin', async () =
     const adminList = await (await fetch('/queue/admin', { headers })).json();
     assert.equal(adminList[1].nim, ticketData.nim);
     assert.equal((await patch('/queue/call-next', headers)).status, 200);
+    assert.equal((await patch('/queue/2/skip', headers)).status, 409);
+    const skipped = await patch('/queue/1/skip', headers);
+    assert.equal(skipped.status, 200);
+    const result = await skipped.json();
+    assert.equal(result.skipped.status, 'skipped');
+    assert.equal(result.current.ticket, 'S001');
+    assert.equal((await patch('/queue/1/skip', headers)).status, 409);
+
+    const display = await fetch('/queue/display', { headers: { Cookie: cookie + '; ' + guest.Cookie } });
+    assert.equal(display.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await display.json(), {
+      current: { ticket: 'S001', keperluan: 'Surat Aktif Kuliah' },
+      upcoming: [],
+    });
+    const last = await patch('/queue/2/skip', headers);
+    assert.equal(last.status, 200);
+    assert.equal((await last.json()).current, null);
+    assert.equal((await post('/queue', ticketData)).status, 409);
+    const requeued = await patch('/queue/1/requeue', headers);
+    assert.equal(requeued.status, 200);
+    assert.equal((await requeued.json()).status, 'waiting');
+    assert.equal((await patch('/queue/1/requeue', headers)).status, 409);
+    assert.deepEqual(await (await fetch('/queue/display')).json(), {
+      current: null, upcoming: [{ ticket: 'K001', keperluan: 'Konsultasi Akademik' }],
+    });
+    assert.equal((await patch('/queue/9223372036854775808/skip', headers)).status, 400);
     assert.equal((await patch('/queue/2/done', headers)).status, 200);
     assert.equal((await (await fetch('/queue', { headers: guest })).json())[1].status, 'done');
     assert.equal((await post('/auth/logout', {}, headers)).status, 200);

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.antrean (
     nama VARCHAR(100) NOT NULL,
     keperluan VARCHAR(150) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'waiting'
-        CHECK (status IN ('waiting', 'called', 'done')),
+        CONSTRAINT antrean_status_check CHECK (status IN ('waiting', 'called', 'done', 'skipped')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     service_date DATE NOT NULL DEFAULT CURRENT_DATE,
     UNIQUE (service_date, queue_number)
@@ -56,6 +56,10 @@ COMMIT;
 -- queue_number tetap menjadi urutan kedatangan untuk pemanggilan satu loket.
 BEGIN;
 LOCK TABLE public.antrean IN ACCESS EXCLUSIVE MODE;
+ALTER TABLE public.antrean DROP CONSTRAINT IF EXISTS antrean_status_check;
+ALTER TABLE public.antrean ADD CONSTRAINT antrean_status_check
+  CHECK (status IN ('waiting', 'called', 'done', 'skipped'));
+
 ALTER TABLE public.antrean ADD COLUMN IF NOT EXISTS service_number INTEGER;
 WITH numbered AS (
   SELECT id, ROW_NUMBER() OVER (
