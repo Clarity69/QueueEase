@@ -117,6 +117,8 @@ Jika sukses, akan muncul JSON dengan status `ok` dan pesan bahwa API dan Postgre
 
 Pada instalasi lama, jalankan ulang [`database/schema.sql`](database/schema.sql) di SQL Editor Supabase sebelum memakai tombol **Lewati**.
 
+- Gunakan **Panggil** di baris tiket menunggu atau dilewati untuk memilih nomor langsung. Jika sedang ada panggilan aktif, tiket sebelumnya kembali menunggu.
+- Gunakan **Lewati** di baris tiket menunggu untuk mengeluarkannya dari urutan panggil otomatis. Panggilan aktif tetap berjalan.
 - Jika pemegang tiket tidak hadir, klik **Lewati** pada panggilan aktif. Tiket berstatus **Dilewati** dan nomor menunggu berikutnya langsung dipanggil jika tersedia.
 - Jika pemegang tiket datang, klik **Kembalikan** pada baris tiket. Tiket kembali menunggu menurut urutan kedatangan semula.
 - Klik **Buka layar TV** di panel petugas, atau buka `/display` langsung dari perangkat yang terhubung ke TV. Gunakan tombol layar penuh jika tersedia. Tampilan diperbarui otomatis dan hanya menampilkan nomor serta jenis layanan.

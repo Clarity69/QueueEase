@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, CheckCircle2, Clock3, FileCheck2, FileText, GraduationCap, ListOrdered, Megaphone, MoreHorizontal, PauseCircle, RefreshCw, SkipForward, Tv, Users, ArrowRight } from "lucide-react";
-import { callNext, completeQueue, getAdminQueue, getStats, requeueTicket, skipQueue } from "../services/api";
+import { callNext, callTicket, completeQueue, getAdminQueue, getStats, requeueTicket, skipQueue, skipWaitingTicket } from "../services/api";
 import { Link } from "react-router-dom";
 import QueueTable from "../components/QueueTable";
 import StatCard from "../components/StatCard";
@@ -77,6 +77,18 @@ export default function AdminPage() {
       ? `Tiket ${skipped.ticket} dilewati. Nomor ${called.ticket} dipanggil.`
       : `Tiket ${skipped.ticket} dilewati. Belum ada antrean menunggu.`,
     "Gagal melewati antrean."
+  );
+  const handleCallTicket = id => runAction(
+    () => callTicket(id),
+    ({ current: called, previousTicket }) => previousTicket
+      ? `Nomor ${called.ticket} dipanggil. Tiket ${previousTicket} kembali menunggu.`
+      : `Nomor ${called.ticket} dipanggil.`,
+    "Gagal memanggil nomor yang dipilih."
+  );
+  const handleSkipWaiting = id => runAction(
+    () => skipWaitingTicket(id),
+    ticket => `Tiket ${ticket.ticket} dilewati.`,
+    "Gagal melewati tiket yang menunggu."
   );
   const handleRequeue = id => runAction(
     () => requeueTicket(id),
@@ -191,8 +203,9 @@ export default function AdminPage() {
             {category === null && skippedCount > 0 && ` · ${skippedCount} dilewati`}
           </p>
         </div>
+        {current && <p className="border-b border-slate-100 px-6 py-3 text-xs text-slate-600">Memanggil tiket dari daftar akan mengembalikan {current.ticket} ke status menunggu.</p>}
         {updatedTime ? (
-          <QueueTable rows={visibleRows} emptyMessage={category ? `Belum ada antrean untuk ${category} hari ini.` : undefined} showAction actionsDisabled={busy} onComplete={handleComplete} onRequeue={handleRequeue} />
+          <QueueTable rows={visibleRows} onCall={handleCallTicket} onSkip={handleSkipWaiting} emptyMessage={category ? `Belum ada antrean untuk ${category} hari ini.` : undefined} showAction actionsDisabled={busy} onComplete={handleComplete} onRequeue={handleRequeue} />
         ) : (
           <p role="status" className="p-6 text-sm text-slate-600">{refreshError ? "Daftar antrean belum dapat dimuat." : "Memuat daftar antrean…"}</p>
         )}

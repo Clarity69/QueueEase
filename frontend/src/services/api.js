@@ -13,6 +13,8 @@ export const getStats = () => api.get("/queue/stats").then((r) => r.data);
 export const createQueue = (payload) => api.post("/queue", payload).then((r) => r.data);
 export const callNext = () => api.patch("/queue/call-next").then((r) => r.data);
 export const skipQueue = (id) => api.patch(`/queue/${id}/skip`).then((r) => r.data);
+export const skipWaitingTicket = (id) => api.patch(`/queue/${id}/skip-waiting`).then((r) => r.data);
+export const callTicket = (id) => api.patch(`/queue/${id}/call`).then((r) => r.data);
 export const requeueTicket = (id) => api.patch(`/queue/${id}/requeue`).then((r) => r.data);
 export const completeQueue = (id) => api.patch(`/queue/${id}/done`).then((r) => r.data);
 

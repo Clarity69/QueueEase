@@ -222,6 +222,68 @@ async function advanceQueue(req, res) {
 router.patch("/call-next", requireAuth, requireAdmin, advanceQueue);
 router.patch("/:id/skip", requireAuth, requireAdmin, advanceQueue);
 
+router.patch("/:id/skip-waiting", requireAuth, requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  if (!validTicketId(id)) return res.status(400).json({ message: "ID antrean tidak valid." });
+
+  try {
+    const result = await pool.query(
+      `UPDATE antrean SET status = 'skipped'
+       WHERE id = $1 AND service_date = CURRENT_DATE AND status = 'waiting'
+       RETURNING *`,
+      [id]
+    );
+    if (!result.rowCount) return res.status(409).json({ message: "Tiket ini sudah tidak berstatus menunggu." });
+    res.json(serialize(result.rows[0]));
+  } catch (error) {
+    console.error(error);
+    if (error.code === "23514" && error.constraint === "antrean_status_check") {
+      return res.status(503).json({ message: "Jalankan ulang database/schema.sql di Supabase untuk mengaktifkan fitur lewati." });
+    }
+    res.status(500).json({ message: "Gagal melewati antrean." });
+  }
+});
+
+router.patch("/:id/call", requireAuth, requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  if (!validTicketId(id)) return res.status(400).json({ message: "ID antrean tidak valid." });
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(20261111)");
+    const target = await client.query(
+      `SELECT id FROM antrean
+       WHERE id = $1 AND service_date = CURRENT_DATE AND status IN ('waiting', 'skipped')
+       FOR UPDATE`,
+      [id]
+    );
+    if (!target.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Hanya tiket yang menunggu atau dilewati yang bisa dipanggil dari daftar." });
+    }
+
+    const previous = await client.query(
+      `UPDATE antrean SET status = 'waiting'
+       WHERE service_date = CURRENT_DATE AND status = 'called'
+       RETURNING service_number, keperluan`
+    );
+    const called = await client.query("UPDATE antrean SET status = 'called' WHERE id = $1 RETURNING *", [id]);
+    await client.query("COMMIT");
+    res.json({
+      current: serialize(called.rows[0]),
+      previousTicket: previous.rows[0] ? formatQueueNumber(previous.rows[0]) : null,
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).json({ message: "Gagal memanggil nomor yang dipilih." });
+  } finally {
+    client?.release();
+  }
+});
+
 router.patch("/:id/requeue", requireAuth, requireAdmin, async (req, res) => {
   const id = req.params.id;
   if (!validTicketId(id)) {

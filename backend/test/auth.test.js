@@ -26,6 +26,12 @@ test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async 
       return { rows: account ? [user] : [] };
     }
     if (sql.startsWith('DELETE FROM user_sessions')) { sessions.delete(args[0]); return { rows: [] }; }
+    if (sql.includes("SET status = 'skipped'")) {
+      const ticket = tickets.find(ticket => ticket.id === args[0] && ticket.status === 'waiting');
+      if (!ticket) return { rowCount: 0, rows: [] };
+      ticket.status = 'skipped';
+      return { rowCount: 1, rows: [ticket] };
+    }
     if (sql.includes("SET status = 'waiting'")) {
       const ticket = tickets.find(ticket => ticket.id === args[0] && ticket.status === 'skipped');
       if (!ticket) return { rowCount: 0, rows: [] };
@@ -76,6 +82,15 @@ test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async 
         for (const ticket of tickets) if (ticket.status === 'called') ticket.status = 'done';
         return {};
       }
+      if (query.startsWith('SELECT id') && query.includes("status IN ('waiting', 'skipped')")) {
+        const target = tickets.find(ticket => ticket.id === args[0] && ['waiting', 'skipped'].includes(ticket.status));
+        return { rowCount: target ? 1 : 0, rows: target ? [target] : [] };
+      }
+      if (query.includes("SET status = 'waiting'")) {
+        const called = tickets.filter(ticket => ticket.status === 'called');
+        for (const ticket of called) ticket.status = 'waiting';
+        return { rows: called };
+      }
       if (query.includes('LIMIT 1 FOR UPDATE')) {
         const next = tickets.find(ticket => ticket.status === 'waiting');
         return { rowCount: next ? 1 : 0, rows: next ? [next] : [] };
@@ -109,7 +124,7 @@ test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async 
         json(data) { resolve({ status, json: async () => data, headers: { get: name => name === "set-cookie" ? cookie : headers.get(name.toLowerCase()) } }); },
       };
       const handlers = router.stack.filter(layer => !layer.route).map(layer => layer.handle);
-      const dynamic = path.match(/^\/([^/]+)\/(done|skip|requeue)$/);
+      const dynamic = path.match(/^\/([^/]+)\/(done|skip|skip-waiting|requeue|call)$/);
       const route = router.stack.find(layer => layer.route && layer.route.methods[req.method.toLowerCase()] && (layer.route.path === path || (dynamic && layer.route.path === '/:id/' + dynamic[2])));
       if (!route) return resolve({ status: 404 });
       if (dynamic) req.params.id = dynamic[1];
@@ -133,7 +148,7 @@ test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async 
       id: '1', ticket: 'K001', queue_number: 1, keperluan: 'Konsultasi Akademik', status: 'waiting',
     });
     for (const path of ['/queue/admin', '/queue/stats']) assert.equal((await fetch(path)).status, 401);
-    for (const path of ['/queue/call-next', '/queue/1/done', '/queue/1/skip', '/queue/1/requeue']) assert.equal((await patch(path)).status, 401);
+    for (const path of ['/queue/call-next', '/queue/1/done', '/queue/1/skip', '/queue/1/requeue', '/queue/1/call', '/queue/1/skip-waiting']) assert.equal((await patch(path)).status, 401);
 
     assert.equal((await post('/queue', { ...ticketData, nim: 'bad' })).status, 400);
     assert.equal((await post('/queue', { ...ticketData, keperluan: 'invalid' })).status, 400);
@@ -188,6 +203,23 @@ test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async 
     const adminList = await (await fetch('/queue/admin', { headers })).json();
     assert.equal(adminList[1].nim, ticketData.nim);
     assert.equal((await patch('/queue/call-next', headers)).status, 200);
+    assert.equal((await patch('/queue/1/skip-waiting', headers)).status, 409);
+    assert.equal((await patch('/queue/2/skip-waiting', headers)).status, 200);
+    const afterRowSkip = await (await fetch('/queue/display')).json();
+    assert.equal(afterRowSkip.current.ticket, 'K001');
+    assert.equal(afterRowSkip.upcoming.length, 0);
+
+    const manual = await patch('/queue/2/call', headers);
+    assert.equal(manual.status, 200);
+    const manualData = await manual.json();
+    assert.equal(manualData.current.ticket, 'S001');
+    assert.equal(manualData.previousTicket, 'K001');
+    const afterManual = await (await fetch('/queue/display')).json();
+    assert.equal(afterManual.current.ticket, 'S001');
+    assert.equal(afterManual.upcoming[0].ticket, 'K001');
+    assert.equal((await patch('/queue/999/call', headers)).status, 409);
+    assert.equal((await (await fetch('/queue/display')).json()).current.ticket, 'S001');
+    assert.equal((await patch('/queue/1/call', headers)).status, 200);
     assert.equal((await patch('/queue/2/skip', headers)).status, 409);
     const skipped = await patch('/queue/1/skip', headers);
     assert.equal(skipped.status, 200);
@@ -215,6 +247,7 @@ test('tiket tamu, privasi layar TV, sesi admin, dan alur lewati antrean', async 
     });
     assert.equal((await patch('/queue/9223372036854775808/skip', headers)).status, 400);
     assert.equal((await patch('/queue/2/done', headers)).status, 200);
+    assert.equal((await patch('/queue/2/call', headers)).status, 409);
     assert.equal((await (await fetch('/queue', { headers: guest })).json())[1].status, 'done');
     assert.equal((await post('/auth/logout', {}, headers)).status, 200);
     assert.equal((await fetch('/auth/me', { headers })).status, 401);
