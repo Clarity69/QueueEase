@@ -2,6 +2,22 @@
 
 Starter project sistem antrean digital: React + Vite + Tailwind CSS, Express.js, dan PostgreSQL yang di-host di Supabase.
 
+## Preview aplikasi
+
+Tangkapan layar berikut menggunakan data contoh.
+
+### Dasbor mahasiswa
+
+Mahasiswa dapat melihat nomor yang sedang dipanggil, status tiket, dan jumlah antrean di depannya.
+
+![Dasbor mahasiswa dengan tiket S001 dan satu antrean di depan](docs/previews/dasbor-mahasiswa.webp)
+
+### Panel petugas
+
+Petugas dapat melihat statistik antrean, memanggil nomor berikutnya, dan menyelesaikan layanan.
+
+![Panel petugas dengan statistik, nomor yang sedang dipanggil, dan daftar antrean](docs/previews/panel-petugas.webp)
+
 ## Fitur
 - Login dan pendaftaran mahasiswa dengan NIM unik serta kata sandi. Sesi memakai cookie HttpOnly selama 24 jam.
 - Dasbor mahasiswa (`/dashboard`): tiket hari ini, kode UUID unik, status, dan jumlah antrean di depan. Tiket tetap tersedia setelah muat ulang.
